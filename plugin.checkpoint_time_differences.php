@@ -1,6 +1,6 @@
 <?php
 /*
- * Plugin: cpDiff
+ * Plugin: checkpoint_time_differences
  * ~~~~~~~~~~~~~~~~~~~
  * » displays cp-time differences to a tracked record - either to pb or to a specific dedimania/local record
  *   
