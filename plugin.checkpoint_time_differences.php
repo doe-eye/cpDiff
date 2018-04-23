@@ -132,7 +132,7 @@ class PluginCpDiff extends Plugin {
 	
 	public function onSync($aseco){
 		// Read Configuration
-		if (!$xml = $aseco->parser->xmlToArray('config/cpDiff.xml', true, true)) {
+		if (!$xml = $aseco->parser->xmlToArray('config/checkpoint_time_differences.xml', true, true)) {
 			trigger_error('[CpDiff] Could not read/parse config file "config/checkpoint_time_differences.xml"!', E_USER_ERROR);
 		}
 		$this->settings = $xml['SETTINGS'];
