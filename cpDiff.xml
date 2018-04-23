@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<settings>
+
+	<!-- textcolor for time-differences -->
+	<textcolors>
+		<time_improved>3B3</time_improved>
+		<time_equal>29F</time_equal>
+		<time_worse>F00</time_worse>
+	</textcolors>
+
+	
+	<widget_top>
+		<!-- starting position of widget_top -->
+		<pos_x>-156</pos_x>
+		<pos_y>80</pos_y>
+		
+		<!-- number of columns for a row -->
+		<num_cols>12</num_cols>
+		
+		<!-- maximum of rows to show, if more than this number, don't show top-widget -->
+		<max_rows>3</max_rows>
+		
+		<background_color>FFFFFF99</background_color>
+		<!-- background-color for active and last active cp -->
+		<background_color_active_last>55556699</background_color_active_last>
+		
+		<!-- color of cp-Number-text -->
+		<cpNo_color>000000FF</cpNo_color>
+		
+		<!-- default color for cp-time (when no comparison) -->
+		<cp_time_color>000000FF</cp_time_color>
+
+	</widget_top>
+
+	
+	<widget_middle>
+		<!-- position of widget_middle -->
+		<pos_x>0</pos_x>
+		<pos_y>0</pos_y>
+	
+		<background_color>55556699</background_color>
+		
+		<!-- default color for cp-time (when no comparison) -->
+		<cp_time_color>DDDDEEFF</cp_time_color>
+		
+	</widget_middle>
+	
+	
+	<widget_bottom>
+		<!-- position of widget_bottom -->
+		<pos_x>-21.25</pos_x>
+		<pos_y>-82.3125</pos_y>
+	
+		<background_color>55556699</background_color>
+		
+		<!-- default color for cp-time (when no comparison) -->
+		<cp_time_color>DDDDEEFF</cp_time_color>
+		
+		<!-- example-text: own 1. dedi as pb record xx:xx.xxx -->
+		<tracking_text_color>BBBBBBFF</tracking_text_color>
+	</widget_bottom>
+</settings>
