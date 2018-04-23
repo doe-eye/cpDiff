@@ -84,7 +84,7 @@ class PluginCpDiff extends Plugin {
 	public function __construct () {
 
 		// Describe the Plugin
-		$this->setVersion('0.9.9');
+		$this->setVersion('1.0');
 		$this->setBuild('2018-04-23');
 		$this->setAuthor('aca');
 		$this->setCopyright('aca');
@@ -133,7 +133,7 @@ class PluginCpDiff extends Plugin {
 	public function onSync($aseco){
 		// Read Configuration
 		if (!$xml = $aseco->parser->xmlToArray('config/cpDiff.xml', true, true)) {
-			trigger_error('[CpDiff] Could not read/parse config file "config/cpDiff.xml"!', E_USER_ERROR);
+			trigger_error('[CpDiff] Could not read/parse config file "config/checkpoint_time_differences.xml"!', E_USER_ERROR);
 		}
 		$this->settings = $xml['SETTINGS'];
 		unset($xml);
