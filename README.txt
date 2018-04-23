@@ -16,13 +16,13 @@ displays cp-time differences to a tracked record - either to pb or to a specific
  
 
 INSTALLATION:
-1) put file cpDiff.php into folder uasaco/plugins
+1) put file plugin.checkpoint_time_differences.php into folder uasaco/plugins
 
-2) put file cpDiff.xml into folder uaseco/config (edit this file to match your needs)
+2) put file checkpoint_time_differences.xml into folder uaseco/config (edit this file to match your needs)
 
 3) edit file uaseco/config/plugins.xml:
 	add the line:
-   <plugin>plugin.cpDiff.php</plugin>
+   <plugin>plugin.checkpoint_time_differences.php</plugin>
    
 4) edit file uaseco/config/modescript_settings.xml:
    set
