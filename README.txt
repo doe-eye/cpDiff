@@ -11,7 +11,7 @@ displays cp-time differences to a tracked record - either to pb or to a specific
  -> shows a colorbar
 
  at top
- -> shows the cp-time differences of every crossed cp (only if in cpDiff.xml indicated number of rows to show is not exceeded)
+ -> shows the cp-time differences of every crossed cp (only if in checkpoint_time_differences.xml indicated number of rows to show is not exceeded)
 
  
 
