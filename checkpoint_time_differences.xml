@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes" ?>
 <settings>
-
+	<!-- shows a connecting player a message, howTo use tracking -->
+	<join_info>
+		<enabled>true</enabled>
+	</join_info>
+	
 	<!-- textcolor for time-differences -->
 	<textcolors>
 		<time_improved>3B3</time_improved>
@@ -10,8 +14,9 @@
 
 	
 	<widget_top>
+		<enabled>true</enabled>
 		<!-- starting position of widget_top -->
-		<pos_x>-156</pos_x>
+		<pos_x>-120</pos_x>
 		<pos_y>80</pos_y>
 		
 		<!-- number of columns for a row -->
@@ -34,6 +39,7 @@
 
 	
 	<widget_middle>
+		<enabled>true</enabled>
 		<!-- position of widget_middle -->
 		<pos_x>0</pos_x>
 		<pos_y>0</pos_y>
@@ -47,6 +53,8 @@
 	
 	
 	<widget_bottom>
+		<enabled>true</enabled>
+		
 		<!-- position of widget_bottom -->
 		<pos_x>-21.25</pos_x>
 		<pos_y>-82.3125</pos_y>
@@ -59,4 +67,8 @@
 		<!-- example-text: own 1. dedi as pb record xx:xx.xxx -->
 		<tracking_text_color>BBBBBBFF</tracking_text_color>
 	</widget_bottom>
+	
+	<colorbar>
+		<enabled>true</enabled>
+	</colorbar>
 </settings>

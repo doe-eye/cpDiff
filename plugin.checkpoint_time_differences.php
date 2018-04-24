@@ -84,8 +84,8 @@ class PluginCpDiff extends Plugin {
 	public function __construct () {
 
 		// Describe the Plugin
-		$this->setVersion('1.0');
-		$this->setBuild('2018-04-23');
+		$this->setVersion('1.2');
+		$this->setBuild('2018-04-24');
 		$this->setAuthor('aca');
 		$this->setCopyright('aca');
 		$this->setDescription('displays cp-time differences to a tracked record - either to pb or to a specific dedimania/local record');
@@ -168,6 +168,8 @@ class PluginCpDiff extends Plugin {
 	
 
 	public function onPlayerConnect($aseco, $player) {
+		$showJoinInfo =((strtoupper($this->settings['JOIN_INFO'][0]['ENABLED'][0]) == 'TRUE') ? true : false);
+		
 		//refresh specArray if necessary
 		if($player->is_spectator){			
 			//is a player spectated
@@ -190,13 +192,15 @@ class PluginCpDiff extends Plugin {
 		
 		$this->refreshTrackedTime($player);
 		
-		$message1 = "{#error}INFO{#server}» To compare to a specific dedimania-record use /dcps # (e.g. /dcps 1)";
-		$message2 = "{#error}INFO{#server}» To compare to a specific local-record use /lcps # (e.g. /lcps 1)";
-		$message3 = "{#error}INFO{#server}» Reset to default tracking (pb) by using /pbcps";
-		
-		$aseco->sendChatMessage($message1, $player->login);
-		$aseco->sendChatMessage($message2, $player->login);
-		$aseco->sendChatMessage($message3, $player->login);
+		if($showJoinInfo){
+			$message1 = "{#error}INFO{#server}» To compare to a specific dedimania-record use /dcps # (e.g. /dcps 1)";
+			$message2 = "{#error}INFO{#server}» To compare to a specific local-record use /lcps # (e.g. /lcps 1)";
+			$message3 = "{#error}INFO{#server}» Reset to default tracking (pb) by using /pbcps";
+			
+			$aseco->sendChatMessage($message1, $player->login);
+			$aseco->sendChatMessage($message2, $player->login);
+			$aseco->sendChatMessage($message3, $player->login);
+		}
 	}
 	
  	public function onPlayerDisconnect ($aseco, $player) {
@@ -742,7 +746,8 @@ class PluginCpDiff extends Plugin {
 		$equal		= $this->settings['TEXTCOLORS'][0]['TIME_EQUAL'][0];
 		$worse 		= $this->settings['TEXTCOLORS'][0]['TIME_WORSE'][0];
 
-		
+		$colorbarEnabled = ((strtoupper($this->settings['COLORBAR'][0]['ENABLED'][0]) == 'TRUE') ? 'True' : 'False');
+		$middleEnabled = ((strtoupper($this->settings['WIDGET_MIDDLE'][0]['ENABLED'][0]) == 'TRUE') ? 'True' : 'False');
 		
 $maniascript = <<<EOL
 <script><!--
@@ -770,8 +775,12 @@ main() {
 	
 	//Player who is driving						player to whom widget is shown
 	declare PlayerPlaying					<=> InputPlayer;
+	
 	declare Boolean HideMiddle				= {$hideMiddle};
-
+	declare Boolean ColorbarEnabled			= {$colorbarEnabled};
+	declare Boolean MiddleEnabled			= {$middleEnabled};
+	
+	
 	declare Integer CurrentCheckpoint		= 0;
 	declare Integer CurrentLapCheckpoint	= 0;
 	declare Integer CurrentRaceTime 		= 0;
@@ -826,15 +835,21 @@ main() {
 				
 				if (TimeDifference < 0) {
 					QuadColorbar.Colorize = ColorBarColors["Worse"];
-					QuadColorbar.Visible = True;
+					if(ColorbarEnabled == True){
+						QuadColorbar.Visible = True;
+					}
 				}
 				else if (TimeDifference == 0) {
 					QuadColorbar.Colorize = ColorBarColors["Equal"];
-					QuadColorbar.Visible = True;
+					if(ColorbarEnabled == True){
+						QuadColorbar.Visible = True;
+					}
 				}
 				else{
 					QuadColorbar.Colorize = ColorBarColors["Improved"];
-					QuadColorbar.Visible = True;
+					if(ColorbarEnabled == True){
+						QuadColorbar.Visible = True;
+					}
 				}
 			}
 		}
@@ -847,10 +862,12 @@ main() {
 	if(HideMiddle == True){
 		FrameCheckpointTimeDiffMiddle.Hide();
 	}
-	else {
-		FrameCheckpointTimeDiffMiddle.Show();
-		//show for 2 seconds
-		sleep(2000);
+	else{
+		if(MiddleEnabled == True){
+			FrameCheckpointTimeDiffMiddle.Show();
+			//show for 2 seconds
+			sleep(2000);
+		}
 		FrameCheckpointTimeDiffMiddle.Hide();
 	} 
 		
@@ -870,11 +887,12 @@ EOL;
 		$cpNoColor = $this->settings['WIDGET_TOP'][0]['CPNO_COLOR'][0];
 		$cpTimeColorTop = $this->settings['WIDGET_TOP'][0]['CP_TIME_COLOR'][0];
 		$maxRows = $this->settings['WIDGET_TOP'][0]['MAX_ROWS'][0];
+		$topEnabled = ((strtoupper($this->settings['WIDGET_TOP'][0]['ENABLED'][0]) == 'TRUE') ? true : false);
 		
 		$rowCount = $this->checkpointCount / $numCols;
 		
-		//only show, when not more rows than indicated in cpDiff.xml
-		if($rowCount <= $maxRows){
+		//only show, when widget is enabled in xml and when not more rows than indicated in xml
+		if($topEnabled && $rowCount <= $maxRows){
 			$column = 0;
 			$cp = 0;
 			while($cp < $this->checkpointCount){		
@@ -913,18 +931,20 @@ EOL;
 		$xml .= '</frame>'; 
 
 		//TimeDiffWidget bottom
+		$bottomEnabled = ((strtoupper($this->settings['WIDGET_BOTTOM'][0]['ENABLED'][0]) == 'TRUE') ? true : false);
 		$posXbottom = (int)$this->settings['WIDGET_BOTTOM'][0]['POS_X'][0];
 		$posYbottom = (int)$this->settings['WIDGET_BOTTOM'][0]['POS_Y'][0];
 		$bgBottom = $this->settings['WIDGET_BOTTOM'][0]['BACKGROUND_COLOR'][0];
 		$trTxtColor = $this->settings['WIDGET_BOTTOM'][0]['TRACKING_TEXT_COLOR'][0];
 		$cpTimeColorBottom = $this->settings['WIDGET_BOTTOM'][0]['CP_TIME_COLOR'][0];
 		
-		$xml .= '<frame pos="'.$posXbottom.' ' .$posYbottom. '" z-index="0" id="CheckpointTimeDiffBottom">';
-		$xml .= '<quad pos="0 0" z-index="0.01" size="40 7.5" bgcolor="'.$bgBottom.'"/>';
-		$xml .= '<label pos="20 -1.21875" z-index="0.02" size="50 3.75" textsize="2" scale="0.8" halign="center" textprefix="$T" textcolor="'.$cpTimeColorBottom.'" text="'.$this->getBottomText($login).'" id ="LabelCheckpointTimeDiffBottom"/>';
-		$xml .= '<label pos="20 -4.6875" z-index="0.02" size="50 2.625" textsize="1" scale="0.8" halign="center" textprefix="$T" textcolor="'.$trTxtColor.'" text="'.$this->getBottomTrackingText($login).'" id="LabelTracking"/>';
-		$xml .= '</frame>';		
-		
+		if($bottomEnabled){
+			$xml .= '<frame pos="'.$posXbottom.' ' .$posYbottom. '" z-index="0" id="CheckpointTimeDiffBottom">';
+			$xml .= '<quad pos="0 0" z-index="0.01" size="40 7.5" bgcolor="'.$bgBottom.'"/>';
+			$xml .= '<label pos="20 -1.21875" z-index="0.02" size="50 3.75" textsize="2" scale="0.8" halign="center" textprefix="$T" textcolor="'.$cpTimeColorBottom.'" text="'.$this->getBottomText($login).'" id ="LabelCheckpointTimeDiffBottom"/>';
+			$xml .= '<label pos="20 -4.6875" z-index="0.02" size="50 2.625" textsize="1" scale="0.8" halign="center" textprefix="$T" textcolor="'.$trTxtColor.'" text="'.$this->getBottomTrackingText($login).'" id="LabelTracking"/>';
+			$xml .= '</frame>';		
+		}
 		$xml .= $maniascript;
 		$xml .= '</manialink>';
 		
