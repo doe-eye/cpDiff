@@ -52,7 +52,7 @@ class PluginCpDiff extends Plugin {
 
 	//number of total Cps (incl. finish)
 	public $checkpointCount = 0;
-
+	
 	//spectatorLogin=>spectatedLogin
 	public $specArray = array();	
 	
@@ -70,10 +70,7 @@ class PluginCpDiff extends Plugin {
 	public $trackedCheckpoints = array();
 	public $curCheckpoints = array();
 	
-	//login=>curCheckpointId
-	public $curCheckpointId = array();
-	//login=>lastCheckpointId
-	public $lastCheckpointId = array();
+	public $curCpString = array();
 	
 	/*
 	#///////////////////////////////////////////////////////////////////////#
@@ -84,8 +81,8 @@ class PluginCpDiff extends Plugin {
 	public function __construct () {
 
 		// Describe the Plugin
-		$this->setVersion('1.2');
-		$this->setBuild('2018-04-24');
+		$this->setVersion('2.0');
+		$this->setBuild('2018-05-05');
 		$this->setAuthor('aca');
 		$this->setCopyright('aca');
 		$this->setDescription('displays cp-time differences to a tracked record - either to pb or to a specific dedimania/local record');
@@ -98,14 +95,14 @@ class PluginCpDiff extends Plugin {
 		// Register events to interact on
 		$this->registerEvent('onSync', 'onSync');
 		$this->registerEvent('onLoadingMap', 'onLoadingMap');
+		$this->registerEvent('onBeginMap', 'onBeginMap');
 		$this->registerEvent('onEndMap', 'onEndMap');
 		
 		$this->registerEvent('onPlayerConnect', 'onPlayerConnect');
 		$this->registerEvent('onPlayerDisconnect', 'onPlayerDisconnect');
 		
-		$this->registerEvent('onPlayerStartCountdown', 'onPlayerStartCountdown');
 		$this->registerEvent('onPlayerCheckpoint', 'onPlayerCheckpoint');
-		$this->registerEvent('onPlayerFinishLine', 'onPlayerFinishLine');		
+		$this->registerEvent('onPlayerFinishLine', 'onPlayerFinishLine');
 		
 		$this->registerEvent('onPlayerInfoChanged', 'onPlayerInfoChanged');
 		
@@ -113,11 +110,7 @@ class PluginCpDiff extends Plugin {
 		$this->registerEvent('onDedimaniaRecord', 'onDedimaniaRecord');		
 		
 		$this->registerEvent('onDedimaniaRecordsLoaded', 'onDedimaniaRecordsLoaded');
-		
-		
-		
-		
-		
+
 		$this->registerChatCommand('lcps', 			'chat_lcps', 		'Sets local record checkpoints tracking', 	Player::PLAYERS);
 		$this->registerChatCommand('dcps', 			'chat_dcps', 		'Sets dedimania record checkpoints tracking', 	Player::PLAYERS);
 		$this->registerChatCommand('pbcps', 		'chat_pbcps', 		'Sets personalBest record checkpoints tracking', 	Player::PLAYERS);
@@ -140,58 +133,72 @@ class PluginCpDiff extends Plugin {
 		
 	}
 	
-	public function onLoadingMap($aseco, $map) {
+	public function onLoadingMap($aseco, $map){
 		$this->checkpointCount = $map->nb_checkpoints;
-		
-		foreach ($aseco->server->players->player_list as $player) {		
- 			//reset curCheckpoints-array
-			for($cp = 0; $cp < $this->checkpointCount; $cp++){
-				$this->curCheckpoints[$player->login][$cp] = 0;
-			}
-			
-			//reset curCheckpointId & lastCheckpointId
-			$this->curCheckpointId[$player->login] = -1;
-			$this->lastCheckpointId[$player->login] = -1;
-			
-			$this->refreshTrackedTime($player);
-		} 	
 	}
 	
+	public function onBeginMap($aseco, $uid) {
+		//$aseco->console("onBeginMap");
+		foreach ($aseco->server->players->player_list as $player){
+			 //reset curCheckpoints-array
+			$this->curCheckpoints[$player->login] = array();
+			for($cp = 0; $cp < $this->checkpointCount; $cp++){
+				$this->curCheckpoints[$player->login][] = -1;
+			}
 
+			$this->curCpString[$player->login] = implode(',', $this->curCheckpoints[$player->login]);
+			//$aseco->console("$player->login: " .$this->curCpString[$player->login]);
+			
+			$this->refreshTrackedTime($player);
+			if($player->getSpectatorStatus()){
+				$this->onPlayerInfoChanged($aseco, $player->login);
+			}
+			else{
+				$this->showTimeDiffWidgets($player->login);
+			}
+		}
+	}	
+	
+	public function onDedimaniaRecordsLoaded($aseco, $records){
+		//$aseco->console("onDedisLoaded");
+		foreach($aseco->server->players->player_list as $player){
+			$this->refreshTrackedTime($player);
+			
+			if($player->getSpectatorStatus()){
+				$this->onPlayerInfoChanged($aseco, $player->login);
+			}
+			else{
+				$this->showTimeDiffWidgets($player->login);
+			}
+		}		
+	}
 	
   	public function onEndMap($aseco, $map) {
-		$aseco->console("onEndMap");
 		$xml = '<manialink id="CheckpointWidgetsTopMiddleBottom"></manialink>';
-		
 		$aseco->sendManialink($xml, false, 0);
 	} 
 	
 
 	public function onPlayerConnect($aseco, $player) {
 		$showJoinInfo =((strtoupper($this->settings['JOIN_INFO'][0]['ENABLED'][0]) == 'TRUE') ? true : false);
-		
-		//refresh specArray if necessary
-		if($player->is_spectator){			
-			//is a player spectated
-			if($player->target_spectating != false){
-				$this->specArray[$player->login] = $player->target_spectating;
-			}
-		}
-		
+				
 		//set default cp-tracking (pb)
 		$this->tracking[$player->login]['dedimania'] = -1;
 		$this->tracking[$player->login]['local'] = -1;			
-		
+
 		//initialize curCheckpoints-array
+		$this->curCheckpoints[$player->login] = array();
 		for($cp = 0; $cp < $this->checkpointCount; $cp++){
-			$this->curCheckpoints[$player->login][] = 0;
+			$this->curCheckpoints[$player->login][] = -1;
 		}
-		//initialize curCheckpointId / lastCheckpointId
-		$this->curCheckpointId[$player->login] = -1;
-		$this->lastCheckpointId[$player->login] = -1;
 		
-		$this->refreshTrackedTime($player);
-		
+		//on rebooting uaseco checkpointCount == 0
+		if($this->checkpointCount > 0){
+			$this->curCpString[$player->login] = implode(',', $this->curCheckpoints[$player->login]);
+			$this->refreshTrackedTime($player);
+			$this->showTimeDiffWidgets($player->login);
+		}
+	
 		if($showJoinInfo){
 			$message1 = "{#error}INFO{#server}» To compare to a specific dedimania-record use /dcps # (e.g. /dcps 1)";
 			$message2 = "{#error}INFO{#server}» To compare to a specific local-record use /lcps # (e.g. /lcps 1)";
@@ -201,7 +208,8 @@ class PluginCpDiff extends Plugin {
 			$aseco->sendChatMessage($message2, $player->login);
 			$aseco->sendChatMessage($message3, $player->login);
 		}
-	}
+	}	
+	
 	
  	public function onPlayerDisconnect ($aseco, $player) {
 		//clear from specArray
@@ -215,25 +223,12 @@ class PluginCpDiff extends Plugin {
 		//clear from trackingLabel
 		unset($this->trackingLabel[$player->login]);
 		
-		//clear from checkpoints-arrays
+		//clear from checkpoints-array
 		unset($this->trackedCheckpoints[$player->login]);
 		unset($this->curCheckpoints[$player->login]);
-		unset($this->curCheckpointId[$player->login]);
-		unset($this->lastCheckpointId[$player->login]);	
-	}
-	
+		unset($this->curCpString[$player->login]);
 
-	
-	public function onPlayerStartCountdown ($aseco, $params) {
-		$login = $params['login'];
-		
-		//reset curCheckpointId and lastCheckpointId
-		$this->lastCheckpointId[$login] = $this->curCheckpointId[$login];
-		$this->curCheckpointId[$login] = -1;
-		
-		$this->showTimeDiffWidgets($login, false);	
 	}
-	
 	
 	public function onPlayerCheckpoint($aseco, $params){
 		$login = $params['login'];
@@ -248,12 +243,8 @@ class PluginCpDiff extends Plugin {
 			$time = (int)$params['race_time'];
 			$cpNo = (int)$params['checkpoint_in_race'];
 		}
-
 		$this->curCheckpoints[$login][$cpNo -1] = $time;
-		$this->curCheckpointId[$login] = $cpNo -1;
-		
-		
-		$this->showTimeDiffWidgets($login, true);
+		$this->curCpString[$login] = implode(',', $this->curCheckpoints[$login]);
 	}
 	
  	public function onPlayerFinishLine($aseco, $params) {
@@ -271,24 +262,24 @@ class PluginCpDiff extends Plugin {
 		}
 		
 		$this->curCheckpoints[$login][$cpNo -1] = $time;
-		$this->curCheckpointId[$login] = $cpNo -1;
-		
-		$this->showTimeDiffWidgets($login, true);
+		$this->curCpString[$login] = implode(',', $this->curCheckpoints[$login]);
 	} 
 	
 	
 	public function onPlayerInfoChanged ($aseco, $login){
+		//$aseco->console("onPlayerInfoChanged $login");
 		$player = $aseco->server->players->getPlayerByLogin($login);
-		
+	
 		//if status changed to spectator
 		if($player->getSpectatorStatus()){
 			//is a player spectated
 			if($player->target_spectating != false){
 				//set in specArray
 				$this->specArray[$login] = $player->target_spectating;
+				
 				if($aseco->server->gamestate != Server::SCORE){
 					//show instantly widgets of target
-					$xml = $this->buildTimeDiffWidgets($player->target_spectating, false);
+					$xml = $this->buildTimeDiffWidgets($player->target_spectating);
 					$aseco->sendManialink($xml, $login, 0);
 				}
 			}
@@ -296,40 +287,38 @@ class PluginCpDiff extends Plugin {
 				$xml = '<manialink id="CheckpointWidgetsTopMiddleBottom"></manialink>';
 				$aseco->sendManialink($xml, $login, 0);
 			}
+			
 		}
 		//if status changed from spectator to player
-		else{ 
+		else{
 			if(isset($this->specArray[$login])){
 				//unset in specArray
 				unset($this->specArray[$login]);
 			}
 			if($aseco->server->gamestate != Server::SCORE){
 				//show instantly widgets player himself
-				$xml = $this->buildTimeDiffWidgets($login, false);
+				$xml = $this->buildTimeDiffWidgets($login);
 				$aseco->sendManialink($xml, $login, 0);	
 			}
 		}
 	}
 	
 	public function onLocalRecord($aseco, $finish){
-		foreach($aseco->server->players->player_list as $player){
+		foreach($aseco->server->players->player_list as $player){			
 			$this->refreshTrackedTime($player);
-		}
-	}
-	
-	public function onDedimaniaRecord($aseco, $finish){
-		foreach ($aseco->server->players->player_list as $player){
-			$this->refreshTrackedTime($player);
+			$this->showTimeDiffWidgets($player->login);
 		}	
 	}
 	
-
-	public function onDedimaniaRecordsLoaded($aseco, $records){
+	public function onDedimaniaRecord($aseco, $finish){
 		foreach($aseco->server->players->player_list as $player){
 			$this->refreshTrackedTime($player);
-			$this->showTimeDiffWidgets($player->login, false);
-		}		
-	}	
+			$this->showTimeDiffWidgets($player->login);
+		}
+	}
+	
+
+	
 	
 	/*
 	#///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////#
@@ -359,7 +348,9 @@ class PluginCpDiff extends Plugin {
 	
 		$this->setCpTracking($player, 'local' ,$chat_parameter);
 		$this->refreshTrackedTime($player);
-		$this->showTimeDiffWidgets($login, false);
+		if(!$player->getSpectatorStatus()){
+			$this->showTimeDiffWidgets($login);
+		}
 	}
 
 	public function chat_dcps ($aseco, $login, $chat_command, $chat_parameter) {
@@ -376,7 +367,9 @@ class PluginCpDiff extends Plugin {
 	
 		$this->setCpTracking($player, 'dedimania' ,$chat_parameter);
 		$this->refreshTrackedTime($player);
-		$this->showTimeDiffWidgets($login, false);
+		if(!$player->getSpectatorStatus()){
+			$this->showTimeDiffWidgets($login);
+		}
 	}
 
 	public function chat_pbcps ($aseco, $login, $chat_command, $chat_parameter) {
@@ -393,7 +386,9 @@ class PluginCpDiff extends Plugin {
 		
 		$this->setCpTracking($player, 'pb', 'pb');	
 		$this->refreshTrackedTime($player);
-		$this->showTimeDiffWidgets($login, false);
+		if(!$player->getSpectatorStatus()){
+			$this->showTimeDiffWidgets($login);
+		}
 	
 	}	
 	/*
@@ -402,104 +397,8 @@ class PluginCpDiff extends Plugin {
 	#///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////#
 	*/
 	
-	private function getMiddleText($login){
-		$txt = "";
-		//start has no cpId
-		if($this->curCheckpointId[$login] > -1){
-			$txt = $this->getTimeDiffAtCp($this->curCheckpointId[$login], $login);
-		}
-		return $txt;
-	}
 	
-	
-	private function getBottomTrackingText($login){
-		$curCpNo = $this->curCheckpointId[$login] + 1;
-		
-		$own = (($this->trackingLabel[$login]['own'] == true) ? 'own ' : '');
-		$tracking = $own . $this->trackingLabel[$login]['recNum'] . ". " . $this->trackingLabel[$login]['kind'];		
-		
-		//at start and at finish
-		if ($curCpNo == 0 || $curCpNo == $this->checkpointCount) {
-			$tracking = $tracking ." ". $this->formatTime($this->trackedCheckpoints[$login][$this->checkpointCount - 1]);
-		}
-		//at cp
-		else if ($curCpNo > 0 && $curCpNo < $this->checkpointCount) {
-			$tracking = $tracking ." ". $this->formatTime($this->trackedCheckpoints[$login][$curCpNo - 1]);
-		}
-		
-		return $tracking;	
-	}
-	
-	
-	private function getBottomText($login){
-		$curCpNo = $this->curCheckpointId[$login] + 1;
-		
-		$bottomText = "";
-		//at start
-		if($curCpNo == 0) {
-			$bottomText = "\$OSTART: ". $this->formatTime(0);
-		}
-		//at cp
-		else if($curCpNo > 0 && $curCpNo < $this->checkpointCount) {
-			$bottomText = "\$OCP" . $curCpNo . ": " . $this->getTimeDiffAtCp($this->curCheckpointId[$login], $login);
-		}
-		//at finish
-		else if($curCpNo == $this->checkpointCount) {
-			$bottomText = "\$OFINISH: ". $this->getTimeDiffAtCp($this->curCheckpointId[$login], $login);
-		}		
-		
-		return $bottomText;
-	}
-	
-	
-	private function getTimeDiffAtCp($cpId, $login){
-		$curCpTime = $this->curCheckpoints[$login][$cpId];
 
-		//not yet driven through this cp (possible for topWidget)
-		if($curCpTime == 0){
-			return "";
-		}
-		
-		//is a comparison possible
-		if(count($this->trackedCheckpoints[$login]) == $this->checkpointCount && $this->trackedCheckpoints[$login][$cpId] != 0){
-			$trackedCpTime = $this->trackedCheckpoints[$login][$cpId];
-			
-			$timeDifference = $trackedCpTime - $curCpTime;
-			$textColor = "\$".$this->settings['TEXTCOLORS'][0]['TIME_IMPROVED'][0]."-";
-			
-			if ($timeDifference < 0) {
-				$timeDifference = $timeDifference * (-1);
-				$textColor = "\$".$this->settings['TEXTCOLORS'][0]['TIME_WORSE'][0]."+";
-			}
-			else if($timeDifference == 0) {
-				$textColor = "\$".$this->settings['TEXTCOLORS'][0]['TIME_EQUAL'][0];
-			}
-			
-			return $textColor . $this->formatTime($timeDifference);	
-		}
-		//no comparison -> show currently driven time
-		else{
-			return $this->formatTime($curCpTime);
-		}		
-	}
-	
-	private function formatTime($ms) {
-		$minutes = intval($ms / 60000);
-		$seconds = intval(($ms % 60000 )/ 1000);
-		$tseconds = ($ms % 60000) % 1000;
-
-		if($minutes > 0){
-			$res = sprintf('%02d:%02d.%03d', $minutes, $seconds, $tseconds);
-		}
-		else if($seconds > 0){
-			$res = sprintf('%2d.%03d', $seconds, $tseconds);
-		}
-		else{
-			$res = sprintf('%d.%03d', $seconds, $tseconds);
-		}
-		return $res;
-	}
-	
 	
 	private function setCpTracking($player, $kindOfRec, $param){
 		global $aseco;
@@ -532,6 +431,7 @@ class PluginCpDiff extends Plugin {
 	private function refreshTrackedTime($player){
 		global $aseco;
 		$login = $player->login;
+		//$aseco->console("refreshTrackedTime $login");
 		
 		//placeholder for initializing $this->trackedCheckpoints[$login] (when no comparison possible)
 		$tmp = array();
@@ -540,7 +440,8 @@ class PluginCpDiff extends Plugin {
 		}
 		
 		//dedimania records available & tracked
-		if(isset($aseco->plugins['PluginDedimania']) && isset($aseco->plugins['PluginDedimania']->db['Map']) && isset($aseco->plugins['PluginDedimania']->db['Map']['Records']) && !empty($aseco->plugins['PluginDedimania']->db['Map']['Records']) && $this->tracking[$login]['dedimania'] != -1){
+		if(isset($aseco->plugins['PluginDedimania']) && isset($aseco->plugins['PluginDedimania']->db['Map'])  && isset($aseco->plugins['PluginDedimania']->db['Map']['Records']) && !empty($aseco->plugins['PluginDedimania']->db['Map']['Records']) && $this->tracking[$login]['dedimania'] != -1){
+			//$aseco->console("$login : dedi tracked");
 			$no = 0;
 			$record = null;
 			
@@ -590,6 +491,7 @@ class PluginCpDiff extends Plugin {
 		}
 		//local records available & tracked
 		else if(isset($aseco->plugins['PluginLocalRecords']) && $aseco->plugins['PluginLocalRecords']->records->count() > 0 && $this->tracking[$login]['local'] != -1){
+			//$aseco->console("$login : local tracked");
 			$no = 0;
 			$record = null;
 			
@@ -634,6 +536,7 @@ class PluginCpDiff extends Plugin {
 		}			
 		//pb tracked
 		else if(isset($aseco->plugins['PluginDedimania']) && isset($aseco->plugins['PluginDedimania']->db['Map']) && isset($aseco->plugins['PluginDedimania']->db['Map']['Records']) && isset($aseco->plugins['PluginLocalRecords']) && $this->tracking[$login]['local'] == -1 && $this->tracking[$login]['dedimania'] == -1){
+			//$aseco->console("$login : pb tracked");
 			$lno = 0;
 			$lrecord = null;
 			$lscore = 0;
@@ -646,6 +549,7 @@ class PluginCpDiff extends Plugin {
 				}
 			}
 
+			//$aseco->dump($aseco->plugins['PluginDedimania']->db['Map']['UId']);
 			$dno = 0;
 			$drecord = null;
 			$dscore = 0;
@@ -660,8 +564,11 @@ class PluginCpDiff extends Plugin {
 				}
 			}
 			
+			//$aseco->console("$login lscore: $lscore dscore: $dscore");
+			
 			//no own records
 			if($lscore == 0 && $dscore == 0){
+				//$aseco->console("$login : pb-> nothing to track");
 				$this->trackedCheckpoints[$login] = $tmp;
 				
 				//set trackingLabel
@@ -672,6 +579,7 @@ class PluginCpDiff extends Plugin {
 			
 			//take dedi-rec
 			else if($dscore != 0 && $dscore <= $lscore || $lscore == 0){
+				//$aseco->console("$login : pb-> take-dedi");
 				if(!is_array($drecord['Checks'])){
 					$drecord['Checks'] = explode(',', $drecord['Checks']);	
 				}
@@ -690,7 +598,8 @@ class PluginCpDiff extends Plugin {
 				$this->trackingLabel[$login]['own'] = true;
 			}
 			//take local-rec
-			else if($lscore != 0 && $lscore < $dscore || $dscore == 0){				
+			else if($lscore != 0 && $lscore < $dscore || $dscore == 0){
+				//$aseco->console("$login : pb-> take-local");
 				// Check for valid checkpoints and refresh trackedCheckpoints
 				if(!empty($lrecord->checkpoints) && $lrecord->score == end($lrecord->checkpoints) && count($lrecord->checkpoints) == $this->checkpointCount){
 					$this->trackedCheckpoints[$login] = $lrecord->checkpoints;
@@ -704,10 +613,12 @@ class PluginCpDiff extends Plugin {
 				$this->trackingLabel[$login]['recNum'] = $lno;
 				$this->trackingLabel[$login]['kind'] = 'local as pb record';
 				$this->trackingLabel[$login]['own'] = true;				
-			}			
+			}
+
 		}
-		//local or dedi tracked but no rec available
+		//local or dedi tracked but no rec available || records not yet loaded
 		else{
+			//$aseco->console("$login : no rec available");
 			$this->trackedCheckpoints[$login] = $tmp;
 			
 			//local or dedi tracked?
@@ -720,9 +631,9 @@ class PluginCpDiff extends Plugin {
 		}
 	}
 	
-	private function showTimeDiffWidgets($login, $showMiddle){
+	private function showTimeDiffWidgets($login){
 		global $aseco;
-		$xml = $this->buildTimeDiffWidgets($login, $showMiddle);
+		$xml = $this->buildTimeDiffWidgets($login);
 		
 		$aseco->sendManialink($xml, $login, 0);
 		
@@ -736,80 +647,240 @@ class PluginCpDiff extends Plugin {
 	
 	
 	
-	private function buildTimeDiffWidgets($login, $showMiddle){
+	private function buildTimeDiffWidgets($login){
 		global $aseco;
-		$cp_times = implode(',', $this->trackedCheckpoints[$login]);
+		//$aseco->console("buildTimeDiffWidgets $login");
+		$trackedCpTimes = implode(',', $this->trackedCheckpoints[$login]);		
 		$multilapmap = (($aseco->server->maps->current->multi_lap == true) ? 'True' : 'False');
- 		$hideMiddle = (($showMiddle == true) ? 'False' : 'True');
 		
 		$improved	= $this->settings['TEXTCOLORS'][0]['TIME_IMPROVED'][0];
 		$equal		= $this->settings['TEXTCOLORS'][0]['TIME_EQUAL'][0];
 		$worse 		= $this->settings['TEXTCOLORS'][0]['TIME_WORSE'][0];
 
-		$colorbarEnabled = ((strtoupper($this->settings['COLORBAR'][0]['ENABLED'][0]) == 'TRUE') ? 'True' : 'False');
+		//top-widget
+		$topEnabled = ((strtoupper($this->settings['WIDGET_TOP'][0]['ENABLED'][0]) == 'TRUE') ? 'True' : 'False');
+		$bgTop = $this->settings['WIDGET_TOP'][0]['BACKGROUND_COLOR'][0];
+		$bgTop_al = $this->settings['WIDGET_TOP'][0]['BACKGROUND_COLOR_ACTIVE_LAST'][0];
+		$numCols = (int)$this->settings['WIDGET_TOP'][0]['NUM_COLS'][0];
+		$maxRows = $this->settings['WIDGET_TOP'][0]['MAX_ROWS'][0];
+		
+		//middle-widget
 		$middleEnabled = ((strtoupper($this->settings['WIDGET_MIDDLE'][0]['ENABLED'][0]) == 'TRUE') ? 'True' : 'False');
+		$middleShowTime = (int)$this->settings['WIDGET_MIDDLE'][0]['SHOW_TIME'][0];
+		
+		//bottom-widget
+		$own = (($this->trackingLabel[$login]['own'] == true) ? 'own ' : '');
+		$tracking = $own . $this->trackingLabel[$login]['recNum'] . ". " . $this->trackingLabel[$login]['kind'];
+		$bottomEnabled = ((strtoupper($this->settings['WIDGET_BOTTOM'][0]['ENABLED'][0]) == 'TRUE') ? 'True' : 'False');
+		
+		$colorbarEnabled = ((strtoupper($this->settings['COLORBAR'][0]['ENABLED'][0]) == 'TRUE') ? 'True' : 'False');
+		
 		
 $maniascript = <<<EOL
 <script><!--
  /*
  * ==================================
- * Function:	<cpWidgets_ShowMiddle_Colorbar> @ plugin.cpDiff.php
+ * Function:	<Time-Diff-Widgets_Top_Middle_Bottom> @ plugin.checkpoint_time_differences.php
  * Author:	aca
  * License:	GPLv3
  * ==================================
  */
 #Include "TextLib" as TextLib
+#Include "MathLib" as MathLib
 
-main() {
-	
-	declare CMlFrame FrameCheckpointTimeDiffMiddle	<=> (Page.GetFirstChild("CheckpointTimeDiffMiddle") as CMlFrame);
-	declare CMlQuad QuadColorbar			<=> (Page.GetFirstChild("ColorbarBottom") as CMlQuad);
-	
-	declare Integer TotalCheckpoints		= {$this->checkpointCount};		// Incl. Finish
-	declare Boolean MultilapMap				= {$multilapmap};
-	declare Integer[] BestCheckpointTimes	= [{$cp_times}];
+Text FormatTime (Integer MwTime) {
+	declare Text FormatedTime = "0:00.000";
 
+	if (MwTime > 0) {
+		FormatedTime = TextLib::TimeToText(MwTime, True) ^ MwTime % 10;
+	}
+	return FormatedTime;
+}
+
+Text TimeToTextDiff (Integer _Time) {
+	declare InputTime	= MathLib::Abs(_Time);
+	declare Seconds		= (InputTime / 1000) % 60;
+	declare Minutes		= (InputTime / 60000) % 60;
+	declare Hours		= (InputTime / 3600000);
+
+	declare Time = "";
+	if (Hours > 0) {
+		Time = Hours ^":"^ TextLib::FormatInteger(Minutes, 2) ^":"^ TextLib::FormatInteger(Seconds, 2);
+	}
+	else if (Minutes > 0) {
+		Time = Minutes ^":"^ TextLib::FormatInteger(Seconds, 2);
+	}
+	else {
+		Time = ""^ Seconds;
+	}
+	Time ^= "."^ TextLib::FormatInteger(InputTime % 1000, 3);
+
+	if (Time != "") {
+		return ""^ Time;
+	}
+	return "0.000";
+}
+
+main(){
+	declare Integer TotalCheckpoints = {$this->checkpointCount};
 	
-	//login of driving player
-	declare Text PlayerPlayingLogin			= "{$login}";
-	
-	//Player who is driving						player to whom widget is shown
-	declare PlayerPlaying					<=> InputPlayer;
-	
-	declare Boolean HideMiddle				= {$hideMiddle};
-	declare Boolean ColorbarEnabled			= {$colorbarEnabled};
-	declare Boolean MiddleEnabled			= {$middleEnabled};
+	while(!PageIsVisible || InputPlayer == Null || TotalCheckpoints == 0){
+		yield;
+		continue;
+	}
 	
 	
-	declare Integer CurrentCheckpoint		= 0;
-	declare Integer CurrentLapCheckpoint	= 0;
-	declare Integer CurrentRaceTime 		= 0;
-	declare Integer TimeDifference			= 0;	
+//top-widget
+	declare Boolean TopEnabled = {$topEnabled};
+	declare CMlFrame[] CpTimeFramesTop;
+	declare Integer CP = 0;
+	while(CP < TotalCheckpoints){
+		CpTimeFramesTop.add((Page.GetFirstChild("FrameCheckpointTimeDiffTop" ^ CP) as CMlFrame));
+		CP += 1;
+	}		
+	declare CMlLabel[] CpTimeDiffLabelsTop;
+	CP = 0;
+	while(CP < TotalCheckpoints){
+		CpTimeDiffLabelsTop.add((Page.GetFirstChild("LabelTopCheckpoint" ^ CP) as CMlLabel));		
+		CP += 1;
+	}	
+	declare CMlQuad[] CpQuadsTop;
+	CP = 0;
+	while(CP < TotalCheckpoints){
+		CpQuadsTop.add((Page.GetFirstChild("QuadTopCheckpoint" ^ CP) as CMlQuad));
+		CP += 1;
+	}
+
+	declare TopColors = [
+		"BgTop"		=> TextLib::ToColor("{$bgTop}"),
+		"BgTop_al"	=> TextLib::ToColor("{$bgTop_al}")
+	];	
 	
+	declare Real NumCols = 0.0 + {$numCols};
+	declare Real TotalCheckpointsReal = 0.0 + {$this->checkpointCount};
+	declare Real MaxRows = 0.0 + {$maxRows};
+	declare Real RowCount = TotalCheckpointsReal / NumCols;
+
+	//only show top-widget when enabled and when it has not more rows than indicated in the xml-file
+	if(TopEnabled == False || RowCount > MaxRows){
+		declare Integer Counter = 0;
+		while(Counter < TotalCheckpoints){
+			CpTimeFramesTop[Counter].Hide();
+			Counter += 1;
+		}
+	}
+	else{
+		declare Integer Counter = 0;
+		while(Counter < TotalCheckpoints){
+			CpQuadsTop[Counter].Opacity = 0.65;
+			CpQuadsTop[Counter].BgColor = TopColors["BgTop"];
+			Counter += 1;
+		}
+	}
+		
+//middle-widget
+	declare Boolean MiddleEnabled = {$middleEnabled};
+	declare Integer MiddleShowTime = {$middleShowTime};
+	declare CMlFrame FrameCheckpointTimeDiffMiddle	<=> (Page.GetFirstChild("FrameCheckpointTimeDiffMiddle") as CMlFrame);
+	declare CMlLabel LabelCheckpointTimeDiffMiddle	<=> (Page.GetFirstChild("LabelCheckpointTimeDiffMiddle") as CMlLabel);
+	FrameCheckpointTimeDiffMiddle.Hide();
+
+//bottom-widget
+	declare Boolean BottomEnabled = {$bottomEnabled};
+	declare CMlFrame FrameCheckpointTimeDiffBottom	<=> (Page.GetFirstChild("FrameCheckpointTimeDiffBottom") as CMlFrame);
+	declare CMlLabel LabelCheckpointTimeDiffBottom	<=> (Page.GetFirstChild("LabelCheckpointTimeDiffBottom") as CMlLabel);
+	declare CMlLabel LabelTracking					<=> (Page.GetFirstChild("LabelTracking") as CMlLabel);	
+	declare Text TrackingText = "{$tracking}";
+	
+	if(BottomEnabled == False){
+		FrameCheckpointTimeDiffBottom.Hide();
+	}
+	
+//colorbar
+	declare Boolean ColorbarEnabled	= {$colorbarEnabled};
+	declare CMlQuad QuadColorbar	<=> (Page.GetFirstChild("ColorbarBottom") as CMlQuad);
 	declare ColorBarColors = [
 		"Improved"	=> TextLib::ToColor("{$improved}"),
 		"Equal"		=> TextLib::ToColor("{$equal}"),
 		"Worse"		=> TextLib::ToColor("{$worse}")
 	];
+
+	if(ColorbarEnabled == True){
+		QuadColorbar.RelativeRotation = 180.0;
+		QuadColorbar.Opacity = 0.75;
+	}
+	else{
+		QuadColorbar.Visible = False;
+	}	
+
 	
-	QuadColorbar.RelativeRotation		= 180.0;
-	QuadColorbar.Opacity			= 0.75;
+	declare Integer CurrentCheckpoint		= 0;
+	declare Integer CurrentLapCheckpoint	= 0;
+	declare Integer CurrentRaceTime 		= 0;
+	declare Integer TimeDifference			= 0;	
+
+	declare Text TextColor					= "";
+	declare TimeDiffColors = [
+		"Improved"	=> "\${$improved}",
+		"Equal"		=> "\${$equal}",
+		"Worse"		=> "\${$worse}"
+	];
+
+//other declarations
+	declare Boolean MultilapMap				 = {$multilapmap};
+	//player who's widget shall be shown
+	declare Text PlayerPlayingLogin			 = "{$login}";	
+	declare PlayerPlaying 					<=> InputPlayer;
+	declare Integer[] TrackedCheckpointTimes = [{$trackedCpTimes}];
+	declare Integer[][Text] PlayersCurrentCheckpoints = Integer[][Text];
+	PlayersCurrentCheckpoints[PlayerPlayingLogin] = [{$this->curCpString[$login]}];
+
 	
-	if(InputPlayer != Null){
-		//player to whom widget is shown is Spectator -> set PlayerPlaying to actually driving player (Spectated)
+	//for faking Event onPlayerCheckpoint
+	CP = 0;
+	declare Integer MiddleShowEnd = 0;
+
+	//flag for entering
+	declare Boolean Initial = True;
+	
+	//for checking, if the Player, who's widget shall be shown, is still connected
+	declare Boolean IsConnected = True;
+
+	
+//player to whom widget is shown is Spectator -> set PlayerPlaying to actually driving player (Spectated)
+	if(InputPlayer.IsSpawned == False){
+		foreach(Player in Players){
+			if(Player.User.Login == PlayerPlayingLogin){
+				PlayerPlaying <=> Player;
+				break;
+			}
+		}	
+	}
+	
+	
+	
+	
+//********************************************************************** main loop ******************************************************
+	while(True){
+		yield;	
+		
+	//check if Player, who's widget shall be shown, is still connected
 		if(InputPlayer.IsSpawned == False){
+			IsConnected = False;
 			foreach(Player in Players){
 				if(Player.User.Login == PlayerPlayingLogin){
-					PlayerPlaying <=> Player;
+					IsConnected = True;
 					break;
 				}
-			}	
+			}
+		}
+		if(IsConnected == False){
+			continue;
 		}
 		
-		//fetch CurrentCheckpoint and CurrentRaceTime	
-		CurrentCheckpoint = PlayerPlaying.CurRace.Checkpoints.count; //count of crossed cps since initial start	
-		CurrentRaceTime = PlayerPlaying.CurCheckpointRaceTime; //time since initial start
-		
+	//fetch CurrentCheckpoint and CurrentRaceTime	
+		CurrentCheckpoint = PlayerPlaying.CurRace.Checkpoints.count; //count of crossed cps since first start	
+		CurrentRaceTime = PlayerPlaying.CurCheckpointRaceTime; //time since first start
 		if (MultilapMap == True) {
 			CurrentLapCheckpoint = CurrentCheckpoint - (PlayerPlaying.CurrentNbLaps * TotalCheckpoints); //count of crossed cps since last start
 			
@@ -827,50 +898,135 @@ main() {
 				CurrentRaceTime = PlayerPlaying.CurCheckpointLapTime; //time since last start
 			}
 		}
+		
+	//when just entered loop	
+		if(Initial == True){
+			CP = CurrentCheckpoint;
+			Initial = False;
 
-		//calculate TimeDifference & set Colorbar
+
+		//fill top-widget
+			declare Integer Int = 0;
+			declare Integer TimeDiff = 0;
+			declare Integer CpTime = -1;
+			declare Text Tcolor = "";
+			//log("InputPlayer: " ^InputPlayer.User.Login ^ "PlayerPlaying: " ^PlayerPlayingLogin ^" PlayerPlayingCurCPs: " ^PlayersCurrentCheckpoints[PlayerPlayingLogin]);
+			while(Int < TotalCheckpoints){
+				CpTime = PlayersCurrentCheckpoints[PlayerPlayingLogin][Int];				
+				if(CpTime == -1){
+					break;
+				}
+				else{
+					if(TrackedCheckpointTimes[Int] > 0){
+						TimeDiff = TrackedCheckpointTimes[Int] - CpTime;						
+						if (TimeDiff < 0) {
+							Tcolor = TimeDiffColors["Worse"] ^"+";
+						}
+						else if (TimeDiff == 0) {
+							Tcolor = TimeDiffColors["Equal"];
+						}
+						else{
+							Tcolor = TimeDiffColors["Improved"] ^"-";
+						}
+					}
+					else{
+						TimeDiff = CpTime;
+					}
+					CpTimeDiffLabelsTop[Int].Value = Tcolor ^ TimeToTextDiff(MathLib::Abs(TimeDiff));
+				}
+				Int += 1;
+			}
+		}
+		
+		
+	//calculate TimeDifference, set Colorbar and TextColor
 		if (CurrentRaceTime > 0) {
-			if (BestCheckpointTimes.existskey(CurrentCheckpoint - 1) && BestCheckpointTimes[CurrentCheckpoint - 1] != 0){
-				TimeDifference = (BestCheckpointTimes[CurrentCheckpoint - 1] - CurrentRaceTime);
+			//comparison possible
+			if (TrackedCheckpointTimes.existskey(CurrentCheckpoint - 1) && TrackedCheckpointTimes[CurrentCheckpoint - 1] != 0){
+				TimeDifference = (TrackedCheckpointTimes[CurrentCheckpoint - 1] - CurrentRaceTime);
 				
 				if (TimeDifference < 0) {
+					TextColor = TimeDiffColors["Worse"] ^"+";
 					QuadColorbar.Colorize = ColorBarColors["Worse"];
 					if(ColorbarEnabled == True){
 						QuadColorbar.Visible = True;
 					}
 				}
 				else if (TimeDifference == 0) {
+					TextColor = TimeDiffColors["Equal"];
 					QuadColorbar.Colorize = ColorBarColors["Equal"];
 					if(ColorbarEnabled == True){
 						QuadColorbar.Visible = True;
 					}
 				}
 				else{
+					TextColor = TimeDiffColors["Improved"] ^"-";
 					QuadColorbar.Colorize = ColorBarColors["Improved"];
 					if(ColorbarEnabled == True){
 						QuadColorbar.Visible = True;
 					}
 				}
 			}
+			//no comparison
+			else{
+				TimeDifference = CurrentRaceTime;
+			}
 		}
 		else{
 			QuadColorbar.Visible = False;
-		}
-	}
-	
-	//for TimeDiffWidgetMiddle
-	if(HideMiddle == True){
-		FrameCheckpointTimeDiffMiddle.Hide();
-	}
-	else{
-		if(MiddleEnabled == True){
-			FrameCheckpointTimeDiffMiddle.Show();
-			//show for 2 seconds
-			sleep(2000);
-		}
-		FrameCheckpointTimeDiffMiddle.Hide();
-	} 
+		}	
 		
+	// Change BottomLabels
+		//at start
+		if (CurrentCheckpoint == 0){
+			CP = 0;
+			LabelCheckpointTimeDiffBottom.Value = "\$OSTART: "^ TimeToTextDiff(0);
+			LabelTracking.Value = TrackingText ^" "^ FormatTime(TrackedCheckpointTimes[TotalCheckpoints - 1]);
+		}
+		//at cp
+		else if (CurrentCheckpoint > 0 && CurrentCheckpoint < TotalCheckpoints) {
+			LabelCheckpointTimeDiffBottom.Value = "\$OCP"^ CurrentCheckpoint ^": "^ TextColor ^ TimeToTextDiff(MathLib::Abs(TimeDifference));
+			LabelTracking.Value = TrackingText ^" "^ FormatTime(TrackedCheckpointTimes[CurrentCheckpoint - 1]);
+		}
+		//at finish
+		else if (CurrentCheckpoint == TotalCheckpoints){
+			LabelCheckpointTimeDiffBottom.Value = "\$OFINISH: "^ TextColor ^ TimeToTextDiff(MathLib::Abs(TimeDifference));
+			LabelTracking.Value = TrackingText ^" "^ FormatTime(TrackedCheckpointTimes[TrackedCheckpointTimes.count - 1]);
+		}
+		
+		
+	//fake Event onCheckpoint
+		if(CurrentCheckpoint > CP || (CurrentCheckpoint == 1 && CP == TotalCheckpoints)){
+			CP = CurrentCheckpoint;
+			MiddleShowEnd = CurrentTime + MiddleShowTime;
+			PlayersCurrentCheckpoints[PlayerPlayingLogin][CurrentCheckpoint -1] = CurrentRaceTime;
+			
+			//set Top-Quads BackgroundColor
+			for(I, 0, TotalCheckpoints -1){
+				CpQuadsTop[I].BgColor = TopColors["BgTop"];
+			}
+			//highlight current Top-Quad
+			CpQuadsTop[CurrentCheckpoint -1].BgColor = TopColors["BgTop_al"];
+		}
+		
+	//fill current TopLabel (none for start)
+		if(CurrentCheckpoint > 0){
+			CpTimeDiffLabelsTop[CurrentCheckpoint -1].Value = TextColor ^ TimeToTextDiff(MathLib::Abs(TimeDifference));
+		}
+
+		
+	//show & hide TimeDiffWidget-Middle
+		if(MiddleEnabled == True){
+			LabelCheckpointTimeDiffMiddle.Value = "\$O"^ TextColor ^ TimeToTextDiff(MathLib::Abs(TimeDifference));
+			if(CurrentTime < MiddleShowEnd && CurrentCheckpoint != 0){
+				FrameCheckpointTimeDiffMiddle.Show();
+			}
+			else{
+				FrameCheckpointTimeDiffMiddle.Hide();
+			}
+		}
+	}
+//********************************************************************** end main loop ******************************************************		
 }
 --></script>
 EOL;
@@ -878,37 +1034,28 @@ EOL;
 	
 		$xml = '<manialink id="CheckpointWidgetsTopMiddleBottom" name="CheckpointWidgetsTopMiddleBottom" version="3">';
 		
+		
 		//TimeDiffWidget top
 		$posXtop = (int)$this->settings['WIDGET_TOP'][0]['POS_X'][0];
 		$posYtop = (int)$this->settings['WIDGET_TOP'][0]['POS_Y'][0];
-		$numCols = (int)$this->settings['WIDGET_TOP'][0]['NUM_COLS'][0];
-		$bgTop = $this->settings['WIDGET_TOP'][0]['BACKGROUND_COLOR'][0];
-		$bgTop_al = $this->settings['WIDGET_TOP'][0]['BACKGROUND_COLOR_ACTIVE_LAST'][0];
 		$cpNoColor = $this->settings['WIDGET_TOP'][0]['CPNO_COLOR'][0];
 		$cpTimeColorTop = $this->settings['WIDGET_TOP'][0]['CP_TIME_COLOR'][0];
-		$maxRows = $this->settings['WIDGET_TOP'][0]['MAX_ROWS'][0];
-		$topEnabled = ((strtoupper($this->settings['WIDGET_TOP'][0]['ENABLED'][0]) == 'TRUE') ? true : false);
-		
-		$rowCount = $this->checkpointCount / $numCols;
-		
-		//only show, when widget is enabled in xml and when not more rows than indicated in xml
-		if($topEnabled && $rowCount <= $maxRows){
-			$column = 0;
-			$cp = 0;
-			while($cp < $this->checkpointCount){		
-				$xml .= '<frame pos="'. ($posXtop + 22 * $column).' '.$posYtop.'" z-index="0">';
-				$xml .= '<quad pos="0 0" z-index="0.01" size="20 5" bgcolor="'. (($this->curCheckpointId[$login] == $cp || ($this->lastCheckpointId[$login] == $cp && $this->lastCheckpointId[$login] > $this->curCheckpointId[$login])) ? $bgTop_al : $bgTop) .'" valign="center"/>';	
-				$xml .= '<label pos="2 0" z-index="0.02" size="8 3.75" textsize="2" scale="0.8" text="' .(($cp + 1 == $this->checkpointCount)? "Fin: " : "Cp".($cp + 1).": ").'" valign="center" textcolor="'.$cpNoColor.'"/>';
-				$xml .= '<label pos="10 0" z-index="0.02" size="10 3.75" textsize="2" textcolor="'.$cpTimeColorTop.'" text="'.$this->getTimeDiffAtCp($cp, $login).'" scale="0.8" valign="center" />';
-				$xml .= '</frame>';
-				
-				$column++;
-				if($column == $numCols){
-					$posYtop -= 6;
-					$column = 0;
-				}
-				$cp++;
+
+		$column = 0;
+		$cp = 0;
+		while($cp < $this->checkpointCount){		
+			$xml .= '<frame pos="'. ($posXtop + 22 * $column).' '.$posYtop.'" z-index="0" id="FrameCheckpointTimeDiffTop'.$cp.'">';
+			$xml .= '<quad pos="0 0" z-index="0.01" size="20 5" valign="center" id="QuadTopCheckpoint'.$cp.'"/>';	
+			$xml .= '<label pos="2 0" z-index="0.02" size="8 3.75" textsize="2" scale="0.8" text="' .(($cp + 1 == $this->checkpointCount)? "Fin: " : "Cp".($cp + 1).": ").'" valign="center" textcolor="'.$cpNoColor.'" />';
+			$xml .= '<label pos="10 0" z-index="0.02" size="10 3.75" textsize="2" textcolor="'.$cpTimeColorTop.'" text="" scale="0.8" valign="center" id="LabelTopCheckpoint'.$cp.'"/>';
+			$xml .= '</frame>';
+			
+			$column++;
+			if($column == $numCols){
+				$posYtop -= 6;
+				$column = 0;
 			}
+			$cp++;
 		}
 
 		
@@ -918,9 +1065,9 @@ EOL;
 		$posYmiddle = (int)$this->settings['WIDGET_MIDDLE'][0]['POS_Y'][0];
 		$cpTimeColorMiddle = $this->settings['WIDGET_MIDDLE'][0]['CP_TIME_COLOR'][0];
 		
-		$xml .= '<frame pos="'.$posXmiddle.' ' .$posYmiddle. '" z-index="0" id="CheckpointTimeDiffMiddle">';
+		$xml .= '<frame pos="'.$posXmiddle.' ' .$posYmiddle. '" z-index="0" id="FrameCheckpointTimeDiffMiddle">';
 		$xml .= '<quad pos="0 30" z-index="0.01" size="25 5" bgcolor="'. $bgMiddle .'" halign="center" valign="center"/>';
-		$xml .= '<label pos="0 30"  z-index="0.02" size="50 3.75" textsize="2" scale="0.8" halign="center" valign="center" textprefix="$T" textcolor="'.$cpTimeColorMiddle.'" text="'.$this->getMiddleText($login).'" id ="LabelCheckpointTimeDiffMiddle"/>';
+		$xml .= '<label pos="0 30"  z-index="0.02" size="50 3.75" textsize="2" scale="0.8" halign="center" valign="center" textprefix="$T" textcolor="'.$cpTimeColorMiddle.'" text="" id ="LabelCheckpointTimeDiffMiddle"/>';
 		$xml .= '</frame>';
 		
 		
@@ -931,27 +1078,25 @@ EOL;
 		$xml .= '</frame>'; 
 
 		//TimeDiffWidget bottom
-		$bottomEnabled = ((strtoupper($this->settings['WIDGET_BOTTOM'][0]['ENABLED'][0]) == 'TRUE') ? true : false);
 		$posXbottom = (int)$this->settings['WIDGET_BOTTOM'][0]['POS_X'][0];
 		$posYbottom = (int)$this->settings['WIDGET_BOTTOM'][0]['POS_Y'][0];
 		$bgBottom = $this->settings['WIDGET_BOTTOM'][0]['BACKGROUND_COLOR'][0];
 		$trTxtColor = $this->settings['WIDGET_BOTTOM'][0]['TRACKING_TEXT_COLOR'][0];
 		$cpTimeColorBottom = $this->settings['WIDGET_BOTTOM'][0]['CP_TIME_COLOR'][0];
 		
-		if($bottomEnabled){
-			$xml .= '<frame pos="'.$posXbottom.' ' .$posYbottom. '" z-index="0" id="CheckpointTimeDiffBottom">';
-			$xml .= '<quad pos="0 0" z-index="0.01" size="40 7.5" bgcolor="'.$bgBottom.'"/>';
-			$xml .= '<label pos="20 -1.21875" z-index="0.02" size="50 3.75" textsize="2" scale="0.8" halign="center" textprefix="$T" textcolor="'.$cpTimeColorBottom.'" text="'.$this->getBottomText($login).'" id ="LabelCheckpointTimeDiffBottom"/>';
-			$xml .= '<label pos="20 -4.6875" z-index="0.02" size="50 2.625" textsize="1" scale="0.8" halign="center" textprefix="$T" textcolor="'.$trTxtColor.'" text="'.$this->getBottomTrackingText($login).'" id="LabelTracking"/>';
-			$xml .= '</frame>';		
-		}
+		$xml .= '<frame pos="'.$posXbottom.' ' .$posYbottom. '" z-index="0" id="FrameCheckpointTimeDiffBottom">';
+		$xml .= '<quad pos="0 0" z-index="0.01" size="40 7.5" bgcolor="'.$bgBottom.'"/>';
+		$xml .= '<label pos="20 -1.21875" z-index="0.02" size="50 3.75" textsize="2" scale="0.8" halign="center" textprefix="$T" textcolor="'.$cpTimeColorBottom.'" text="" id ="LabelCheckpointTimeDiffBottom"/>';
+		$xml .= '<label pos="20 -4.6875" z-index="0.02" size="50 2.625" textsize="1" scale="0.8" halign="center" textprefix="$T" textcolor="'.$trTxtColor.'" text="" id="LabelTracking"/>';
+		$xml .= '</frame>';
+		
 		$xml .= $maniascript;
 		$xml .= '</manialink>';
 		
-		return $xml;	
-	}
+		return $xml;
 
 	
+	}
+	
 }
-
 ?>

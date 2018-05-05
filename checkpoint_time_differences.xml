@@ -20,14 +20,14 @@
 		<pos_y>80</pos_y>
 		
 		<!-- number of columns for a row -->
-		<num_cols>12</num_cols>
+		<num_cols>11</num_cols>
 		
 		<!-- maximum of rows to show, if more than this number, don't show top-widget -->
 		<max_rows>3</max_rows>
 		
-		<background_color>FFFFFF99</background_color>
+		<background_color>FFF</background_color>
 		<!-- background-color for active and last active cp -->
-		<background_color_active_last>55556699</background_color_active_last>
+		<background_color_active_last>556</background_color_active_last>
 		
 		<!-- color of cp-Number-text -->
 		<cpNo_color>000000FF</cpNo_color>
@@ -48,6 +48,9 @@
 		
 		<!-- default color for cp-time (when no comparison) -->
 		<cp_time_color>DDDDEEFF</cp_time_color>
+		
+		<!-- how long widget middle should be shown -->
+		<show_time>2000</show_time>
 		
 	</widget_middle>
 	

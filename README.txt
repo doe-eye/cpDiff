@@ -23,15 +23,22 @@ INSTALLATION:
 3) edit file uaseco/config/plugins.xml:
 	add the line:
    <plugin>plugin.checkpoint_time_differences.php</plugin>
+
    
-4) edit file uaseco/config/modescript_settings.xml:
+***** OPTIONS **********************************************************
+
+if you show the middle widget 
+-> edit file uaseco/config/modescript_settings.xml:
    set
    	<checkpoint_time>
 		<visible>true</visible>
    to
 		<visible>false</visible>
    
-5) edit file uaseco/config/checkpoints.xml:
+   
+   
+if you show the bottom widget and the colorbar
+-> edit file uaseco/config/checkpoints.xml:
 	set
 	<time_diff_widget>
 		<enabled>true</enabled>
@@ -39,8 +46,11 @@ INSTALLATION:
 	to
 		<enabled>false</enabled>
 		<enable_colorbar>false</enable_colorbar>
-   
-6) restart uaseco
+		
+*************************************************************************
+
+		
+4) restart uaseco
 
 
 
