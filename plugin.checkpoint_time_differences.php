@@ -306,14 +306,26 @@ class PluginCpDiff extends Plugin {
 	public function onLocalRecord($aseco, $finish){
 		foreach($aseco->server->players->player_list as $player){			
 			$this->refreshTrackedTime($player);
+<<<<<<< HEAD
+			if(!$player->getSpectatorStatus()){
+				$this->showTimeDiffWidgets($player->login);
+			}
+=======
 			$this->showTimeDiffWidgets($player->login);
+>>>>>>> 9d56c1012f01944ebd4320ca8d6a0cc879c06bdd
 		}	
 	}
 	
 	public function onDedimaniaRecord($aseco, $finish){
 		foreach($aseco->server->players->player_list as $player){
 			$this->refreshTrackedTime($player);
+<<<<<<< HEAD
+			if(!$player->getSpectatorStatus()){
+				$this->showTimeDiffWidgets($player->login);
+			}
+=======
 			$this->showTimeDiffWidgets($player->login);
+>>>>>>> 9d56c1012f01944ebd4320ca8d6a0cc879c06bdd
 		}
 	}
 	
@@ -696,6 +708,7 @@ Text FormatTime (Integer MwTime) {
 	}
 	return FormatedTime;
 }
+<<<<<<< HEAD
 
 Text TimeToTextDiff (Integer _Time) {
 	declare InputTime	= MathLib::Abs(_Time);
@@ -721,6 +734,33 @@ Text TimeToTextDiff (Integer _Time) {
 	return "0.000";
 }
 
+=======
+
+Text TimeToTextDiff (Integer _Time) {
+	declare InputTime	= MathLib::Abs(_Time);
+	declare Seconds		= (InputTime / 1000) % 60;
+	declare Minutes		= (InputTime / 60000) % 60;
+	declare Hours		= (InputTime / 3600000);
+
+	declare Time = "";
+	if (Hours > 0) {
+		Time = Hours ^":"^ TextLib::FormatInteger(Minutes, 2) ^":"^ TextLib::FormatInteger(Seconds, 2);
+	}
+	else if (Minutes > 0) {
+		Time = Minutes ^":"^ TextLib::FormatInteger(Seconds, 2);
+	}
+	else {
+		Time = ""^ Seconds;
+	}
+	Time ^= "."^ TextLib::FormatInteger(InputTime % 1000, 3);
+
+	if (Time != "") {
+		return ""^ Time;
+	}
+	return "0.000";
+}
+
+>>>>>>> 9d56c1012f01944ebd4320ca8d6a0cc879c06bdd
 main(){
 	declare Integer TotalCheckpoints = {$this->checkpointCount};
 	
