@@ -72,6 +72,9 @@ class PluginCpDiff extends Plugin {
 	
 	public $curCpString = array();
 	
+	public $newMap = false;
+
+	
 	/*
 	#///////////////////////////////////////////////////////////////////////#
 	#									#
@@ -81,8 +84,8 @@ class PluginCpDiff extends Plugin {
 	public function __construct () {
 
 		// Describe the Plugin
-		$this->setVersion('2.0.1');
-		$this->setBuild('2018-05-07');
+		$this->setVersion('2.0.3');
+		$this->setBuild('2018-05-18');
 		$this->setAuthor('aca');
 		$this->setCopyright('aca');
 		$this->setDescription('displays cp-time differences to a tracked record - either to pb or to a specific dedimania/local record');
@@ -96,6 +99,8 @@ class PluginCpDiff extends Plugin {
 		$this->registerEvent('onSync', 'onSync');
 		$this->registerEvent('onLoadingMap', 'onLoadingMap');
 		$this->registerEvent('onBeginMap', 'onBeginMap');
+		$this->registerEvent('onEverySecond', 'onEverySecond');
+		
 		$this->registerEvent('onEndMap', 'onEndMap');
 		
 		$this->registerEvent('onPlayerConnect', 'onPlayerConnect');
@@ -109,7 +114,7 @@ class PluginCpDiff extends Plugin {
 		$this->registerEvent('onLocalRecord', 'onLocalRecord');
 		$this->registerEvent('onDedimaniaRecord', 'onDedimaniaRecord');		
 		
-		$this->registerEvent('onDedimaniaRecordsLoaded', 'onDedimaniaRecordsLoaded');
+		
 
 		$this->registerChatCommand('lcps', 			'chat_lcps', 		'Sets local record checkpoints tracking', 	Player::PLAYERS);
 		$this->registerChatCommand('dcps', 			'chat_dcps', 		'Sets dedimania record checkpoints tracking', 	Player::PLAYERS);
@@ -135,42 +140,37 @@ class PluginCpDiff extends Plugin {
 	
 	public function onLoadingMap($aseco, $map){
 		$this->checkpointCount = $map->nb_checkpoints;
-	}
-	
-	public function onBeginMap($aseco, $uid) {
-		//$aseco->console("onBeginMap");
 		foreach ($aseco->server->players->player_list as $player){
-			 //reset curCheckpoints-array
+			//reset curCheckpoints-array
 			$this->curCheckpoints[$player->login] = array();
 			for($cp = 0; $cp < $this->checkpointCount; $cp++){
 				$this->curCheckpoints[$player->login][] = -1;
 			}
-
-			$this->curCpString[$player->login] = implode(',', $this->curCheckpoints[$player->login]);
-			//$aseco->console("$player->login: " .$this->curCpString[$player->login]);
-			
-			$this->refreshTrackedTime($player);
-			if($player->getSpectatorStatus()){
-				$this->onPlayerInfoChanged($aseco, $player->login);
-			}
-			else{
-				$this->showTimeDiffWidgets($player->login);
-			}
+			$this->curCpString[$player->login] = implode(',', $this->curCheckpoints[$player->login]);		
 		}
+		$this->newMap = true;
 	}	
 	
-	public function onDedimaniaRecordsLoaded($aseco, $records){
-		//$aseco->console("onDedisLoaded");
-		foreach($aseco->server->players->player_list as $player){
+
+	
+  	public function onBeginMap($aseco, $uid){
+		foreach ($aseco->server->players->player_list as $player){
 			$this->refreshTrackedTime($player);
-			
-			if($player->getSpectatorStatus()){
-				$this->onPlayerInfoChanged($aseco, $player->login);
+		}
+		
+	} 
+	
+	
+	public function onEverySecond($aseco){
+		if($this->newMap == true && (isset($aseco->plugins['PluginDedimania']) && isset($aseco->plugins['PluginDedimania']->db['Map']) && isset($aseco->plugins['PluginDedimania']->db['Map']['Records']))){
+			foreach ($aseco->server->players->player_list as $player){
+				$this->refreshTrackedTime($player);
+				if(!$player->getSpectatorStatus()){
+					$this->showTimeDiffWidgets($player->login);
+				}
 			}
-			else{
-				$this->showTimeDiffWidgets($player->login);
-			}
-		}		
+			$this->newMap = false;
+		}
 	}
 	
   	public function onEndMap($aseco, $map) {
@@ -185,18 +185,20 @@ class PluginCpDiff extends Plugin {
 		//set default cp-tracking (pb)
 		$this->tracking[$player->login]['dedimania'] = -1;
 		$this->tracking[$player->login]['local'] = -1;			
-
-		//initialize curCheckpoints-array
-		$this->curCheckpoints[$player->login] = array();
-		for($cp = 0; $cp < $this->checkpointCount; $cp++){
-			$this->curCheckpoints[$player->login][] = -1;
-		}
 		
 		//on rebooting uaseco checkpointCount == 0
 		if($this->checkpointCount > 0){
+			//initialize curCheckpoints-array
+			$this->curCheckpoints[$player->login] = array();
+			for($cp = 0; $cp < $this->checkpointCount; $cp++){
+				$this->curCheckpoints[$player->login][] = -1;
+			}
 			$this->curCpString[$player->login] = implode(',', $this->curCheckpoints[$player->login]);
 			$this->refreshTrackedTime($player);
 			$this->showTimeDiffWidgets($player->login);
+		}
+		else{
+			$this->newMap = true;
 		}
 	
 		if($showJoinInfo){
@@ -730,7 +732,6 @@ main(){
 	
 	while(!PageIsVisible || InputPlayer == Null || TotalCheckpoints == 0){
 		yield;
-		continue;
 	}
 	
 	
@@ -860,7 +861,6 @@ main(){
 			}
 		}	
 	}
-	
 	
 	
 	
