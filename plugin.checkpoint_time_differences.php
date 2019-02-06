@@ -86,7 +86,7 @@ class PluginCpDiff extends Plugin {
 	public function __construct () {
 
 		// Describe the Plugin
-		$this->setVersion('2.0.4');
+		$this->setVersion('2.0.5');
 		$this->setBuild('2019-02-06');
 		$this->setAuthor('aca');
 		$this->setCopyright('aca');
