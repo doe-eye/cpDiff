@@ -664,14 +664,13 @@ class PluginCpDiff extends Plugin {
 		$improved	= $this->settings['TEXTCOLORS'][0]['TIME_IMPROVED'][0];
 		$equal		= $this->settings['TEXTCOLORS'][0]['TIME_EQUAL'][0];
 		$worse 		= $this->settings['TEXTCOLORS'][0]['TIME_WORSE'][0];
-
+		
 		//top-widget
 		$topEnabled = ((strtoupper($this->settings['WIDGET_TOP'][0]['ENABLED'][0]) == 'TRUE') ? 'True' : 'False');
 		$bgTop = $this->settings['WIDGET_TOP'][0]['BACKGROUND_COLOR'][0];
 		$bgTop_al = $this->settings['WIDGET_TOP'][0]['BACKGROUND_COLOR_ACTIVE_LAST'][0];
 		$numCols = (int)$this->settings['WIDGET_TOP'][0]['NUM_COLS'][0];
 		$maxRows = $this->settings['WIDGET_TOP'][0]['MAX_ROWS'][0];
-		$show_cpTime = ((strtoupper($this->settings['WIDGET_TOP'][0]['SHOW_CPTIME'][0]) == 'TRUE') ? 'True' : 'False');
 		
 		//middle-widget
 		$middleEnabled = ((strtoupper($this->settings['WIDGET_MIDDLE'][0]['ENABLED'][0]) == 'TRUE') ? 'True' : 'False');
@@ -740,7 +739,6 @@ main(){
 	
 //top-widget
 	declare Boolean TopEnabled = {$topEnabled};
-	declare Boolean ShowCpTime = {$show_cpTime};
 	declare CMlFrame[] CpTimeFramesTop;
 	declare Integer CP = 0;
 	while(CP < TotalCheckpoints){
@@ -750,7 +748,13 @@ main(){
 	declare CMlLabel[] CpTimeDiffLabelsTop;
 	CP = 0;
 	while(CP < TotalCheckpoints){
-		CpTimeDiffLabelsTop.add((Page.GetFirstChild("LabelTopCheckpoint" ^ CP) as CMlLabel));		
+		CpTimeDiffLabelsTop.add((Page.GetFirstChild("LabelTopCpTimeDiff" ^ CP) as CMlLabel));		
+		CP += 1;
+	}
+	declare CMlLabel[] CpTimeLabelsTop;
+	CP = 0;
+	while(CP < TotalCheckpoints){
+		CpTimeLabelsTop.add((Page.GetFirstChild("LabelTopCpTime" ^ CP) as CMlLabel));		
 		CP += 1;
 	}	
 	declare CMlQuad[] CpQuadsTop;
@@ -917,7 +921,7 @@ main(){
 			declare Integer Int = 0;
 			declare Integer TimeDiff = 0;
 			declare Integer CpTime = -1;
-			declare Text Tcolor = "";
+			declare Text Tcolor = TextColor;
 			//log("InputPlayer: " ^InputPlayer.User.Login ^ "PlayerPlaying: " ^PlayerPlayingLogin ^" PlayerPlayingCurCPs: " ^PlayersCurrentCheckpoints[PlayerPlayingLogin]);
 			while(Int < TotalCheckpoints){
 				CpTime = PlayersCurrentCheckpoints[PlayerPlayingLogin][Int];				
@@ -940,12 +944,8 @@ main(){
 					else{
 						TimeDiff = CpTime;
 					}
-					if(ShowCpTime == True){
-						CpTimeDiffLabelsTop[Int].Value = TimeToTextDiff(CpTime) ^" "^ Tcolor ^ TimeToTextDiff(MathLib::Abs(TimeDiff));
-					}
-					else{
-						CpTimeDiffLabelsTop[Int].Value = Tcolor ^ TimeToTextDiff(MathLib::Abs(TimeDiff));
-					}
+					CpTimeLabelsTop[Int].Value = TimeToTextDiff(CpTime);
+					CpTimeDiffLabelsTop[Int].Value = Tcolor ^ TimeToTextDiff(MathLib::Abs(TimeDiff));
 				}
 				Int += 1;
 			}
@@ -1024,12 +1024,8 @@ main(){
 		
 	//fill current TopLabel (none for start)
 		if(CurrentCheckpoint > 0){
-			if(ShowCpTime == True){
-				CpTimeDiffLabelsTop[CurrentCheckpoint -1].Value = TimeToTextDiff(PlayersCurrentCheckpoints[PlayerPlayingLogin][CurrentCheckpoint -1]) ^" "^ TextColor ^ TimeToTextDiff(MathLib::Abs(TimeDifference));
-			}
-			else{
-				CpTimeDiffLabelsTop[CurrentCheckpoint -1].Value = TextColor ^ TimeToTextDiff(MathLib::Abs(TimeDifference));
-			}
+			CpTimeLabelsTop[CurrentCheckpoint -1].Value = TimeToTextDiff(PlayersCurrentCheckpoints[PlayerPlayingLogin][CurrentCheckpoint -1]);
+			CpTimeDiffLabelsTop[CurrentCheckpoint -1].Value = TextColor ^ TimeToTextDiff(MathLib::Abs(TimeDifference));
 		}
 
 		
@@ -1056,39 +1052,49 @@ EOL;
 		//TimeDiffWidget top
 		$posXtop = (float)$this->settings['WIDGET_TOP'][0]['POS_X'][0];
 		$posYtop = (float)$this->settings['WIDGET_TOP'][0]['POS_Y'][0];
-		$cpNoColor = $this->settings['WIDGET_TOP'][0]['CPNO_COLOR'][0];
-		$cpTimeColorTop = $this->settings['WIDGET_TOP'][0]['CP_TIME_COLOR'][0];
 		$hide_finish = (bool)$this->settings['WIDGET_TOP'][0]['HIDE_FINISH'][0];
+		$show_cpTime = (bool)$this->settings['WIDGET_TOP'][0]['SHOW_CPTIME'][0];
 		
 		$quadSizeX = (float)$this->settings['WIDGET_TOP'][0]['QUAD_SIZE_X'][0];
 		$quadSizeY = (float)$this->settings['WIDGET_TOP'][0]['QUAD_SIZE_Y'][0];
 		
-		$textSize = (float)$this->settings['WIDGET_TOP'][0]['TEXT_SIZE'][0];
-		$scale = (float)$this->settings['WIDGET_TOP'][0]['SCALE'][0];
-		
+		$textSizeCpNo = (float)$this->settings['WIDGET_TOP'][0]['TEXT_SIZE_CPNO'][0];
+		$scaleCpNo = (float)$this->settings['WIDGET_TOP'][0]['SCALE_CPNO'][0];
 		$cpLabelPosX = (float)$this->settings['WIDGET_TOP'][0]['CP_LABEL_POS_X'][0];
 		$cpLabelPosY = (float)$this->settings['WIDGET_TOP'][0]['CP_LABEL_POS_Y'][0];
 		$cpLabelSizeX = (float)$this->settings['WIDGET_TOP'][0]['CP_LABEL_SIZE_X'][0];
 		$cpLabelSizeY = (float)$this->settings['WIDGET_TOP'][0]['CP_LABEL_SIZE_Y'][0];
+		$cpNoColor = $this->settings['WIDGET_TOP'][0]['CPNO_COLOR'][0];
 		
+		$textSizeCpTime = (float)$this->settings['WIDGET_TOP'][0]['TEXT_SIZE_CP_TIME'][0];
+		$scaleCpTime = (float)$this->settings['WIDGET_TOP'][0]['SCALE_CP_TIME'][0];
 		$cpTimeLabelPosX = (float)$this->settings['WIDGET_TOP'][0]['CP_TIME_LABEL_POS_X'][0];
 		$cpTimeLabelPosY = (float)$this->settings['WIDGET_TOP'][0]['CP_TIME_LABEL_POS_Y'][0];
 		$cpTimeLabelSizeX = (float)$this->settings['WIDGET_TOP'][0]['CP_TIME_LABEL_SIZE_X'][0];
-		$cpTimeLabelSizeY = (float)$this->settings['WIDGET_TOP'][0]['CP_TIME_LABEL_SIZE_Y'][0];
+		$cpTimeLabelSizeY = (float)$this->settings['WIDGET_TOP'][0]['CP_TIME_LABEL_SIZE_Y'][0];		
+		$cpTimeColor = $this->settings['WIDGET_TOP'][0]['ADDITIONAL_CP_TIME_COLOR'][0];
 		
+		$textSizeCpTimeDiff = (float)$this->settings['WIDGET_TOP'][0]['TEXT_SIZE_CP_TIME_DIFF'][0];
+		$scaleCpTimeDiff = (float)$this->settings['WIDGET_TOP'][0]['SCALE_CP_TIME_DIFF'][0];
+		$cpTimeDiffLabelPosX = (float)$this->settings['WIDGET_TOP'][0]['CP_TIME_DIFF_LABEL_POS_X'][0];
+		$cpTimeDiffLabelPosY = (float)$this->settings['WIDGET_TOP'][0]['CP_TIME_DIFF_LABEL_POS_Y'][0];
+		$cpTimeDiffLabelSizeX = (float)$this->settings['WIDGET_TOP'][0]['CP_TIME_DIFF_LABEL_SIZE_X'][0];
+		$cpTimeDiffLabelSizeY = (float)$this->settings['WIDGET_TOP'][0]['CP_TIME_DIFF_LABEL_SIZE_Y'][0];
+		$cpTimeDiffColor = $this->settings['WIDGET_TOP'][0]['CP_TIME_COLOR'][0];
 
 		$column = 0;
 		$cp = 0;
 		while($cp < $this->checkpointCount){		
 			$xml .= '<frame pos="'. ($posXtop + ($quadSizeX + 1) * $column).' '.$posYtop.'" z-index="0" id="FrameCheckpointTimeDiffTop'.$cp.'">';
 			$xml .= '<quad pos="0 0" z-index="0.01" size="'.$quadSizeX." ".$quadSizeY.'" valign="center" id="QuadTopCheckpoint'.$cp.'" hidden="'.(($cp + 1 == $this->checkpointCount && $hide_finish == true)? "true" : "false").'"/>';	
-			$xml .= '<label pos="'.$cpLabelPosX." ".$cpLabelPosY.'" z-index="0.02" size="'.$cpLabelSizeX." ".$cpLabelSizeY.'" textsize="'.$textSize.'" scale="'.$scale.'" text="' .(($cp + 1 == $this->checkpointCount)? "Fin: " : "Cp".($cp + 1).": ").'" valign="center" textcolor="'.$cpNoColor.'" hidden="'.(($cp + 1 == $this->checkpointCount && $hide_finish == true)? "true" : "false").'"/>';
-			$xml .= '<label pos="'.$cpTimeLabelPosX." ".$cpTimeLabelPosY.'" z-index="0.02" size="'.$cpTimeLabelSizeX." ".$cpTimeLabelSizeY.'" textsize="'.$textSize.'" textcolor="'.$cpTimeColorTop.'" text="" scale="'.$scale.'" valign="center" id="LabelTopCheckpoint'.$cp.'" hidden="'.(($cp + 1 == $this->checkpointCount && $hide_finish == true)? "true" : "false").'"/>';
+			$xml .= '<label pos="'.$cpLabelPosX." ".$cpLabelPosY.'" z-index="0.02" size="'.$cpLabelSizeX." ".$cpLabelSizeY.'" textsize="'.$textSizeCpNo.'" scale="'.$scaleCpNo.'" text="' .(($cp + 1 == $this->checkpointCount)? "Fin: " : "Cp".($cp + 1).": ").'" valign="center" textcolor="'.$cpNoColor.'" hidden="'.(($cp + 1 == $this->checkpointCount && $hide_finish == true)? "true" : "false").'"/>';
+			$xml .= '<label pos="'.$cpTimeLabelPosX." ".$cpTimeLabelPosY.'" z-index="0.02" size="'.$cpTimeLabelSizeX." ".$cpTimeLabelSizeY.'" textsize="'.$textSizeCpTime.'" scale="'.$scaleCpTime.'" textcolor="'.$cpTimeColor.'" text="" valign="center" id="LabelTopCpTime'.$cp.'" hidden="'.((($cp + 1 == $this->checkpointCount && $hide_finish == true)||$show_cpTime == false)? "true" : "false").'"/>';
+			$xml .= '<label pos="'.$cpTimeDiffLabelPosX." ".$cpTimeDiffLabelPosY.'" z-index="0.02" size="'.$cpTimeDiffLabelSizeX." ".$cpTimeDiffLabelSizeY.'" textsize="'.$textSizeCpTimeDiff.'" scale="'.$scaleCpTimeDiff.'" textcolor="'.$cpTimeDiffColor.'" text="" valign="center" id="LabelTopCpTimeDiff'.$cp.'" hidden="'.(($cp + 1 == $this->checkpointCount && $hide_finish == true)? "true" : "false").'"/>';
 			$xml .= '</frame>';
 			
 			$column++;
 			if($column == $numCols){
-				$posYtop -= 6;
+				$posYtop -= $quadSizeY + 1;
 				$column = 0;
 			}
 			$cp++;

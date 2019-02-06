@@ -16,7 +16,7 @@
 	<widget_top>
 		<enabled>true</enabled>
 		<!-- starting position of widget_top -->
-		<pos_x>-118</pos_x>
+		<pos_x>-121</pos_x>
 		<pos_y>80</pos_y>
 		
 		<!-- number of columns for a row -->
@@ -32,11 +32,15 @@
 		<!-- color of cp-Number-text -->
 		<cpNo_color>000000FF</cpNo_color>
 		
-		<!-- default color for cp-time (when no comparison) -->
+		<!-- default color for diff-text when no comparison -->
 		<cp_time_color>000000FF</cp_time_color>
 
 		
 		
+		
+		
+		<!-- default color for cp-time (if shown) -->
+		<additional_cp_time_color>000000FF</additional_cp_time_color>
 		
 		<!-- don't show finish as last cp -->
 		<hide_finish>true</hide_finish>
@@ -46,21 +50,29 @@
 		
 		
 		<!-- adjustment of positions sizes -->		
-		<quad_size_x>25</quad_size_x>
+		<quad_size_x>26</quad_size_x>
 		<quad_size_y>5</quad_size_y>
 		
-		<text_size>2</text_size>
-		<scale>0.8</scale>
-		
+		<text_size_cpNo>2</text_size_cpNo>
+		<scale_cpNo>0.8</scale_cpNo>		
 		<cp_label_pos_x>0.5</cp_label_pos_x>
 		<cp_label_pos_y>0</cp_label_pos_y>
 		<cp_label_size_x>5</cp_label_size_x>
 		<cp_label_size_y>3.75</cp_label_size_y>
 		
+		<text_size_cp_time>2</text_size_cp_time>
+		<scale_cp_time>0.8</scale_cp_time>
 		<cp_time_label_pos_x>6</cp_time_label_pos_x>
 		<cp_time_label_pos_y>0</cp_time_label_pos_y>		
-		<cp_time_label_size_x>20</cp_time_label_size_x>
+		<cp_time_label_size_x>10</cp_time_label_size_x>
 		<cp_time_label_size_y>3.75</cp_time_label_size_y>
+		
+		<text_size_cp_time_diff>2</text_size_cp_time_diff>
+		<scale_cp_time_diff>0.5</scale_cp_time_diff>
+		<cp_time_diff_label_pos_x>17</cp_time_diff_label_pos_x>
+		<cp_time_diff_label_pos_y>0</cp_time_diff_label_pos_y>		
+		<cp_time_diff_label_size_x>10</cp_time_diff_label_size_x>
+		<cp_time_diff_label_size_y>3.75</cp_time_diff_label_size_y>
 		
 	</widget_top>
 
