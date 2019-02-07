@@ -87,7 +87,7 @@ class PluginCpDiff extends Plugin {
 
 		// Describe the Plugin
 		$this->setVersion('2.0.5');
-		$this->setBuild('2019-02-06');
+		$this->setBuild('2019-02-07');
 		$this->setAuthor('aca');
 		$this->setCopyright('aca');
 		$this->setDescription('displays cp-time differences to a tracked record - either to pb or to a specific dedimania/local record');
@@ -1052,8 +1052,8 @@ EOL;
 		//TimeDiffWidget top
 		$posXtop = (float)$this->settings['WIDGET_TOP'][0]['POS_X'][0];
 		$posYtop = (float)$this->settings['WIDGET_TOP'][0]['POS_Y'][0];
-		$hide_finish = (bool)$this->settings['WIDGET_TOP'][0]['HIDE_FINISH'][0];
-		$show_cpTime = (bool)$this->settings['WIDGET_TOP'][0]['SHOW_CPTIME'][0];
+		$hide_finish = ((strtoupper($this->settings['WIDGET_TOP'][0]['HIDE_FINISH'][0]) == 'TRUE') ? 'True' : 'False');
+		$show_cpTime = ((strtoupper($this->settings['WIDGET_TOP'][0]['SHOW_CPTIME'][0]) == 'TRUE') ? 'True' : 'False');
 		
 		$quadSizeX = (float)$this->settings['WIDGET_TOP'][0]['QUAD_SIZE_X'][0];
 		$quadSizeY = (float)$this->settings['WIDGET_TOP'][0]['QUAD_SIZE_Y'][0];
@@ -1086,10 +1086,10 @@ EOL;
 		$cp = 0;
 		while($cp < $this->checkpointCount){		
 			$xml .= '<frame pos="'. ($posXtop + ($quadSizeX + 1) * $column).' '.$posYtop.'" z-index="0" id="FrameCheckpointTimeDiffTop'.$cp.'">';
-			$xml .= '<quad pos="0 0" z-index="0.01" size="'.$quadSizeX." ".$quadSizeY.'" valign="center" id="QuadTopCheckpoint'.$cp.'" hidden="'.(($cp + 1 == $this->checkpointCount && $hide_finish == true)? "true" : "false").'"/>';	
-			$xml .= '<label pos="'.$cpLabelPosX." ".$cpLabelPosY.'" z-index="0.02" size="'.$cpLabelSizeX." ".$cpLabelSizeY.'" textsize="'.$textSizeCpNo.'" scale="'.$scaleCpNo.'" text="' .(($cp + 1 == $this->checkpointCount)? "Fin: " : "Cp".($cp + 1).": ").'" valign="center" textcolor="'.$cpNoColor.'" hidden="'.(($cp + 1 == $this->checkpointCount && $hide_finish == true)? "true" : "false").'"/>';
-			$xml .= '<label pos="'.$cpTimeLabelPosX." ".$cpTimeLabelPosY.'" z-index="0.02" size="'.$cpTimeLabelSizeX." ".$cpTimeLabelSizeY.'" textsize="'.$textSizeCpTime.'" scale="'.$scaleCpTime.'" textcolor="'.$cpTimeColor.'" text="" valign="center" id="LabelTopCpTime'.$cp.'" hidden="'.((($cp + 1 == $this->checkpointCount && $hide_finish == true)||$show_cpTime == false)? "true" : "false").'"/>';
-			$xml .= '<label pos="'.$cpTimeDiffLabelPosX." ".$cpTimeDiffLabelPosY.'" z-index="0.02" size="'.$cpTimeDiffLabelSizeX." ".$cpTimeDiffLabelSizeY.'" textsize="'.$textSizeCpTimeDiff.'" scale="'.$scaleCpTimeDiff.'" textcolor="'.$cpTimeDiffColor.'" text="" valign="center" id="LabelTopCpTimeDiff'.$cp.'" hidden="'.(($cp + 1 == $this->checkpointCount && $hide_finish == true)? "true" : "false").'"/>';
+			$xml .= '<quad pos="0 0" z-index="0.01" size="'.$quadSizeX." ".$quadSizeY.'" valign="center" id="QuadTopCheckpoint'.$cp.'" hidden="'.(($cp + 1 == $this->checkpointCount && $hide_finish == 'True')? "true" : "false").'"/>';	
+			$xml .= '<label pos="'.$cpLabelPosX." ".$cpLabelPosY.'" z-index="0.02" size="'.$cpLabelSizeX." ".$cpLabelSizeY.'" textsize="'.$textSizeCpNo.'" scale="'.$scaleCpNo.'" text="' .(($cp + 1 == $this->checkpointCount)? "Fin: " : "Cp".($cp + 1).": ").'" valign="center" textcolor="'.$cpNoColor.'" hidden="'.(($cp + 1 == $this->checkpointCount && $hide_finish == 'True')? "true" : "false").'"/>';
+			$xml .= '<label pos="'.$cpTimeLabelPosX." ".$cpTimeLabelPosY.'" z-index="0.02" size="'.$cpTimeLabelSizeX." ".$cpTimeLabelSizeY.'" textsize="'.$textSizeCpTime.'" scale="'.$scaleCpTime.'" textcolor="'.$cpTimeColor.'" text="" valign="center" id="LabelTopCpTime'.$cp.'" hidden="'.((($cp + 1 == $this->checkpointCount && $hide_finish == 'True')||$show_cpTime == 'False')? "true" : "false").'"/>';
+			$xml .= '<label pos="'.$cpTimeDiffLabelPosX." ".$cpTimeDiffLabelPosY.'" z-index="0.02" size="'.$cpTimeDiffLabelSizeX." ".$cpTimeDiffLabelSizeY.'" textsize="'.$textSizeCpTimeDiff.'" scale="'.$scaleCpTimeDiff.'" textcolor="'.$cpTimeDiffColor.'" text="" valign="center" id="LabelTopCpTimeDiff'.$cp.'" hidden="'.(($cp + 1 == $this->checkpointCount && $hide_finish == 'True')? "true" : "false").'"/>';
 			$xml .= '</frame>';
 			
 			$column++;
