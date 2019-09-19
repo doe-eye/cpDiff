@@ -87,7 +87,7 @@ class PluginCpDiff extends Plugin {
 
 		// Describe the Plugin
 		$this->setVersion('2.0.5');
-		$this->setBuild('2019-02-07');
+		$this->setBuild('2019-09-18');
 		$this->setAuthor('aca');
 		$this->setCopyright('aca');
 		$this->setDescription('displays cp-time differences to a tracked record - either to pb or to a specific dedimania/local record');
@@ -190,10 +190,12 @@ class PluginCpDiff extends Plugin {
 		
 		//on rebooting uaseco checkpointCount == 0
 		if($this->checkpointCount > 0){
-			//initialize curCheckpoints-array
+			//initialize curCheckpoints-array and trackedCheckpoints-array
 			$this->curCheckpoints[$player->login] = array();
+			$this->trackedCheckpoints[$player->login] = array();
 			for($cp = 0; $cp < $this->checkpointCount; $cp++){
 				$this->curCheckpoints[$player->login][] = -1;
+				$this->trackedCheckpoints[$player->login][] = 0;
 			}
 			$this->curCpString[$player->login] = implode(',', $this->curCheckpoints[$player->login]);
 			$this->refreshTrackedTime($player);
